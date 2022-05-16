@@ -1,0 +1,63 @@
+Pixel5 setting
+
+<aosp>
+1. branch tag: android-11.0.0_r34, build ID: RQ2A.210405.005
+2. git config --global user.name NAME
+   git config --global user.email EMAIL@example.com
+3. repo init -u https://android.googlesource.com/platform/manifest -b android-11.0.0_r34
+   3-1. repo sync
+   3-2. repo 관련 안된다면 update-alternative --config pythong을 통해 2.7갔다가 3으로 다시
+4. https://developers.google.com/android/drivers에서 build ID에 맞는 driver 다운 후, curl-devices.sh
+5. opengapps 관련 https://github.com/opengapps/aosp_build 와 https://blog.pagez.kr/4 참고
+   5-1. .repo/manifest.xml 의 </manifest> 전에 내용추가
+   5-2. device/google/redfin/device.mk에서 가장 상단에 GAPPS_VARIANT := pico, 가장 하단에 $(call ~)
+   5-3. repo reset후 repo sync https://m.blog.naver.com/PostView.naver?isHttpsRedirect=true&blogId=dudrb523&logNo=171419034 참고해서 reset 시킨 후 sync 참조
+   5-4. /vendor/opengapps/source 의 5개 폴더에서 git lfs pull
+
+<kernel>
+branch tag: android-msm-redbull-4.19-android11-qpr2
+0. aosp envsetup아닌 상태에서 진행
+1. repo init -u https://android.googlesource.com/kernel/manifest -b android-msm-redbull-4.19-android11-qpr2
+2. repo sync
+3. build/build.sh가 아닌 build_redbull.sh로 kernel build
+	3-1. kernel 수정 이후에 수정한 부분만 빌드하고 싶으면 ./build_redbull.sh SKIP_MRPROPER=1으로
+	3-2. skip_build.sh 로 정의되어있음. 또한 error만 출력하고싶다면 ./skip_build.sh |& grep "error"
+4. Image.lz4, Image.lz4-dtb, kernel-uapi-headers.tar.gz and all the *.ko 파일들을
+   kernel/out/android-msm-pixel-4.19/dist/ => aosp/device/google/redbull-kernel로 cp : shell script
+5. aosp에서 m 통해 build (당연히 . build/envsetup.sh, lunch aosp_redfin-userdebug 필요)
+	5-1. 바꾼부분만 build 할 때: m bootimage
+6. kernel/out/android-msm-pixel-4.19/dist/vendor_boot.img => aosp/out/target/product/redfin : shell script
+7. adb reboot bootloader
+8. fastboot flashall (-w) * -w option은 처음에만
+
+<play store>
+1. opengapps를 통해 play store를 설치한 상태에서 booting -> Play 프로텍트 인증을 받은 기기가 아님 으로 인해 play store및 구글 계정 등록등 모두 불가
+2. https://www.google.com/android/uncertified 에서 기기 등록
+   2-1. android_id: 4310149559656846313
+3. 일정 시간 기다려보고 너무 안되면 설정-앱 및 알림-앱 모두보기-오른쪽 위 점3개 눌러 시스템 표시
+   3-1. google play 서비스, google play 스토어, google service framework의 데이터 및 캐시 지우기
+*참고: https://support.google.com/android/thread/116975069/device-isn-t-play-protect-certified-on-aosp-rom?hl=en됨
+
+<강제로 process anon page들 swapout시키기>
+1. /fs/proc/task_mmu.c 에서 CONFIG_PROCESS_RECLAIM 설정 확인
+2. 이 설정을 11kernel에서 build.config에 포함시키기
+3. adb shell 에서 ps -ef로 원하는 process 확인 (com.rovio.baba 가 angrybird) -- 여기부터 하면
+4. cat /proc/pid/status | grep Rss 하면 현재 anon, file, shmem 확인 가능
+5. echo anon > /proc/pid/reclaim 하면 해당 pid의 process의 anon page들을 모두 swapout 시킴
+6. free -m 해보면 현재 메모리 사용량 알 수 있음
+7. cat /proc/pid/status | grep Rss 해서 다시 확인하면 anon page들의 용량이 확 줄어있음
+8. cat /proc/swaps 해보면 현재 swap영역들의 사용량 알 수 있음
+
+<dmesg>
+1. dmesg | grep "" 으로 dmesg 에서 원하는 문자열 grep으로 찾을 수 있음
+
+<다잉메시지 보기>
+1. adb root
+2. adb pull /sys/fs/pstore
+
+<adb shell에서 sysctl 활성화>
+1. echo (pid) > /proc/sys/kernel/sysctl이름
+2. dmesg 에서 확인 (dmesg | grep 으로)
+
+
+
